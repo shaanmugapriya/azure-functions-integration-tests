@@ -1,1 +1,1 @@
-# azure-functions-integration-tests
+# Integration tests for Azure Functions

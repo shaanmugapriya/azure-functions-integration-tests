@@ -1,0 +1,56 @@
+name: Run Integration Tests
+
+on:
+  push:
+    branches: ["main"]
+    paths-ignore:
+      - '**.md'
+
+env:
+  DOTNET_VERSION: '8.0.x'
+
+jobs:
+  build-and-test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      INTEGRATION_TEST_EXECUTION_DIRECTORY: ./tests/HelloAzureFunctions.Tests.Integration/bin/Debug/net8.0
+
+    steps:
+    - name: 'Checkout GitHub Action'
+      uses: actions/checkout@v3
+
+    - name: Setup .NET ${{ env.DOTNET_VERSION }} Environment
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Build
+      run: dotnet build
+
+    # Install Azure Functions Core Tools in the runner, 
+    # so we have access to 'func.exe' to spin up the Azure Functions app in integration tests
+    - name: Install Azure Functions Core Tools 
+      run: |
+        npm install -g azure-functions-core-tools@4 --unsafe-perm true
+
+    # Setup Azurite in the runner, 
+    # so the Azure Functions app we are going to spin up, can use azurite as it's Storage Provider
+    - name: Setup Azurite 
+      shell: bash
+      run: |
+        npm install -g azurite
+        azurite --silent &
+
+    - name: Run Integration Tests
+      # If there are any errors executing integration tests, uncomment the following line to continue the workflow, so you can look at integration-test-output.log
+      # continue-on-error: true 
+      run: dotnet test ${{ env.INTEGRATION_TEST_EXECUTION_DIRECTORY }}/HelloAzureFunctions.Tests.Integration.dll
+
+    - name: Upload Integration Tests Execution Log
+      uses: actions/upload-artifact@v4
+      with:
+        name: artifact-${{ matrix.os }}
+        path: ${{ env.INTEGRATION_TEST_EXECUTION_DIRECTORY }}/integration-test-output.log
